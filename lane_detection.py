@@ -10,7 +10,9 @@ client.set_timeout(5)
 world = client.get_world()
 #print(world.get_settings())
 blueprint_library = world.get_blueprint_library()
-
+fourcc = cv2.VideoWriter_fourcc(*'XVID')
+out = cv2.VideoWriter('man360grey.avi', fourcc, 10.0, (IM_W, IM_H))
+kernel = np.ones((2, 1), np.uint8)
 
 class Carla_session:
 
@@ -76,6 +78,21 @@ class Carla_session:
         print('starting new seq')
         self.counter = 0
 
+    def lane_detection(self, image):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        _, th = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY)
+        opening = cv2.morphologyEx(th, cv2.MORPH_OPEN, kernel)
+        blurred = cv2.medianBlur(opening, 1) #smoothening
+        edges = cv2.Canny(blurred, 10, 250, apertureSize = 7)# edge detection
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 15, 100, 1) #hough probalistic
+        image = np.array(image)
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+
+
+        return image
+
     def add_image(self, image):
         self.counter += 1
         img = np.reshape(image.raw_data, (IM_H, IM_W, 4))
@@ -89,7 +106,8 @@ class Carla_session:
             if not os.path.exists(os.path.join(image_save_path,str(self.n_seq))):
                 os.makedirs(os.path.join(image_save_path,str(self.n_seq)))'''
 
-
+        #out.write(img)
+        cv2.imshow("lane", self.lane_detection(img))
         cv2.imshow("live", img)
         cv2.waitKey(1)
 
@@ -126,7 +144,8 @@ class Carla_session:
                 time.sleep(0.1)
                 '''if self.collision_flag:
                     break'''
-                
+            #out.release()   
+    
         except Exception as e:
             print(e)
 
