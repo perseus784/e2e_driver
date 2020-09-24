@@ -10,6 +10,8 @@ while you can operate from the PythonAPI folder, I perfer it installed globally.
 Running carla in server mode: CarlaUE4.exe -ResX=420 -ResY=280 -carla-server -fps=10 -carla-world-port=7878 -quality-level=Low
 port is changed since it dint work for me, you can use a different port and connect via PythonAPI using the same.
 
+#working on remote: https://colab.research.google.com/github/MichaelBosello/carla-colab/blob/master/carla-simulator.ipynb#scrollTo=w4Ywwr43AGR9
+
 
  
  
