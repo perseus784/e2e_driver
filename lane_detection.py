@@ -1,4 +1,4 @@
-import os,sys,random,time
+import os, sys, random, time
 import carla
 import numpy as np
 import cv2
@@ -11,7 +11,7 @@ world = client.get_world()
 #print(world.get_settings())
 blueprint_library = world.get_blueprint_library()
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('man360grey.avi', fourcc, 10.0, (IM_W, IM_H))
+out = cv2.VideoWriter(os.path.join('data' , 'man360grey.avi'), fourcc, 10.0, (IM_W, IM_H))
 kernel = np.ones((2, 1), np.uint8)
 
 class Carla_session:
@@ -22,6 +22,10 @@ class Carla_session:
         self.collision_flag = False
         self.episode_images = []
         self.env_actors = []
+        self.lane_angle = 0
+        self.blank = np.zeros((IM_H, IM_W, 1), np.uint8)
+        mask_shape = np.array([[ [IM_W-int(IM_W*.35), int(IM_H*0.2)], [0+int(IM_W*.35),int(IM_H*0.2)], [0+int(IM_W*.18),IM_H], [IM_W-int(IM_W*.18), IM_H]]])
+        self.mask = cv2.fillPoly(self.blank[:], [mask_shape], (255, 255, 255))
 
     def add_vehicles(self):
         env_vehicles_bp = blueprint_library.filter('vehicle.*')
@@ -46,7 +50,8 @@ class Carla_session:
 
     def add_actors(self):
 
-        start_point = random.choice(world.get_map().get_spawn_points())
+        #start_point = random.choice(world.get_map().get_spawn_points())
+        start_point = carla.Transform(carla.Location(x=83.276306, y=-79.507767, z=8.305596), carla.Rotation(pitch=0.000000, yaw=-87.975883, roll=0.000000))
         #set vehicle
         vehicle_bp = blueprint_library.find('vehicle.tesla.cybertruck')
         self.vehicle = world.spawn_actor(vehicle_bp, start_point)
@@ -72,25 +77,35 @@ class Carla_session:
         #self.lane_invasion_sensor.listen(lambda lane_inv: self.end_seq(lane_inv,'crossed lane'))
 
     def start_new_seq(self):
-        
         self.add_actors()
         self.collision_flag = False
         print('starting new seq')
         self.counter = 0
+        time.sleep(5)
+
+    def process_angle(self, image):
+        pass
 
     def lane_detection(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.bitwise_and(gray, self.mask) # apply mask
         _, th = cv2.threshold(gray, 130, 255, cv2.THRESH_BINARY)
         opening = cv2.morphologyEx(th, cv2.MORPH_OPEN, kernel)
         blurred = cv2.medianBlur(opening, 1) #smoothening
-        edges = cv2.Canny(blurred, 10, 250, apertureSize = 7)# edge detection
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 15, 100, 1) #hough probalistic
+        edges = cv2.Canny(blurred, 10, 250, apertureSize=7)# edge detection
+        lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, np.array([]), 40, 100) #hough probalistic
         image = np.array(image)
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
-
-
+        #cv2.imshow('mask', mask)
+        #cv2.imshow('gray', gray)
+        #cv2.imshow('edges', edges)
+        blank = np.zeros((IM_H, IM_W, 1), np.uint8)
+        if lines is not None:
+            for line in lines:
+                x1, y1, x2, y2 = line[0]
+                cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.line(blank, (x1, y1), (x2, y2), (255, 255, 255), 2)
+        self.process_angle(blank)
+        cv2.imshow('blank', blank)
         return image
 
     def add_image(self, image):
@@ -118,9 +133,9 @@ class Carla_session:
     
     def end_seq(self, cause_obj, cause):
         self.destroy_actors()
-        self.collision_flag =True
+        self.collision_flag = True
         print("collision happened")
-        self.delete_images()
+        #self.delete_images()
 
     def destroy_actors(self):
         for actor in self.actors:
@@ -135,17 +150,19 @@ class Carla_session:
         thr = random.choice([0.8, 0.7, 0.6])
         steer = random.choice([-0.3, 0.0, 0.0, 0.0, 0.3, 0.1, -0.1])
         return carla.VehicleControl(0.3, 0.0)  
-       
+        
     def drive_around(self, episodes):
         try:
             self.start_new_seq()
-            for j in range(2000):
+            for j in range(200):
                 self.vehicle.apply_control(self.get_directions())
                 time.sleep(0.1)
+
                 '''if self.collision_flag:
                     break'''
             #out.release()   
-    
+            self.destroy_actors()
+
         except Exception as e:
             print(e)
 
