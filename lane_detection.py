@@ -81,10 +81,26 @@ class Carla_session:
         self.collision_flag = False
         print('starting new seq')
         self.counter = 0
-        time.sleep(5)
+        time.sleep(30)
 
     def process_angle(self, image):
         pass
+
+    def line_intersection(self, line1, line2):
+        xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
+        ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
+
+        def det(a, b):
+            return a[0] * b[1] - a[1] * b[0]
+
+        div = det(xdiff, ydiff)
+        if div == 0:
+            raise False
+
+        d = (det(*line1), det(*line2))
+        x = det(d, xdiff) / div
+        y = det(d, ydiff) / div
+        return x, y
 
     def lane_detection(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -95,17 +111,19 @@ class Carla_session:
         edges = cv2.Canny(blurred, 10, 250, apertureSize=7)# edge detection
         lines = cv2.HoughLinesP(edges, 1, np.pi/180, 80, np.array([]), 40, 100) #hough probalistic
         image = np.array(image)
-        #cv2.imshow('mask', mask)
-        #cv2.imshow('gray', gray)
-        #cv2.imshow('edges', edges)
+        cv2.imshow('mask', self.mask)
+        cv2.imshow('gray', gray)
+        cv2.imshow('th', th)
+        cv2.imshow('edges', edges)
         blank = np.zeros((IM_H, IM_W, 1), np.uint8)
+        #imaginary_lines = [[[0,i],[w,i]] for i in range(0,h,30)]
         if lines is not None:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 cv2.line(blank, (x1, y1), (x2, y2), (255, 255, 255), 2)
-        self.process_angle(blank)
-        cv2.imshow('blank', blank)
+        #self.process_angle(blank)
+        #cv2.imshow('blank', blank)
         return image
 
     def add_image(self, image):
