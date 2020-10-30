@@ -2,7 +2,7 @@ import os
 
 # settings
 IM_W, IM_H = (360, 240)
-CARLA_PORT = 7878
+CARLA_PORT = 7879
 TOWN = "Town01"
 waypoint_resolution = 2.0 
 image_save_path ='data'
