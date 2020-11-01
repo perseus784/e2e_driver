@@ -54,16 +54,16 @@ def is_within_distance_ahead(target_transform, current_transform, max_distance):
 
     # If the vector is too short, we can simply stop here
     if norm_target < 0.001:
-        return True
+        return (0, True)
 
     if norm_target > max_distance:
-        return False
+        return (0, False)
 
     fwd = current_transform.get_forward_vector()
     forward_vector = np.array([fwd.x, fwd.y])
     d_angle = math.degrees(math.acos(np.clip(np.dot(forward_vector, target_vector) / norm_target, -1., 1.)))
 
-    return d_angle < 90.0
+    return (d_angle, d_angle < 20.0)
 
 def is_within_distance(target_location, current_location, orientation, max_distance, d_angle_th_up, d_angle_th_low=0):
     """

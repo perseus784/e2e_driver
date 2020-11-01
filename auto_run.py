@@ -4,7 +4,9 @@ import numpy as np
 import cv2
 from config import *
 import keyboard as kb
-
+from carla_route_finder.global_route_planner_dao import GlobalRoutePlannerDAO
+from carla_route_finder.global_route_planner import GlobalRoutePlanner
+from carla_route_finder import misc 
 
 #create main carla objects
 client = carla.Client('localhost',CARLA_PORT)
@@ -57,8 +59,6 @@ class Carla_Sensors:
 class Carla_Navigation:
     def __init__(self):
         self.map = world.get_map()
-        from carla_route_finder.global_route_planner_dao import GlobalRoutePlannerDAO
-        from carla_route_finder.global_route_planner import GlobalRoutePlanner
         dao = GlobalRoutePlannerDAO(self.map, waypoint_resolution)
         grp = GlobalRoutePlanner(dao)
         grp.setup()
@@ -77,6 +77,29 @@ class Carla_Navigation:
         waypoints, road_options = zip(*route_waypoints)
         return waypoints, road_options
 
+    def check_actors_in_course(self,current_location, env_actors):
+
+        '''crr = carla.Location(x=current_location.x, y=current_location.y, z=current_location.z)
+        world.debug.draw_string(crr,'x', color=carla.Color(r=0, g=255, b=0), life_time=10.0, persistent_lines=True)
+        '''
+        for actor in env_actors:
+            loc = actor.get_transform()
+            angle, check = misc.is_within_distance_ahead(loc, current_location, watchout_distance)
+            if check:
+                return check
+            '''difference = np.array([loc.x-current_location.x, loc.y-current_location.y, loc.z-current_location.z])
+            distance = np.linalg.norm(difference)
+            if distance<10:
+                return True
+            else:
+                return False'''
+        return False
+
+    def calculate_speed(self, ideal_speed, current_speed):
+
+        pass
+    def calculate_steer(Self):
+        pass
     def find_new_control(self):
         pass
 
@@ -124,6 +147,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         self.camera = world.spawn_actor(camera_sensor_bp, sensor_location, attach_to = self.vehicle)
         self.camera.listen(lambda image: self.add_image(image))
         self.agent_actors.extend([self.vehicle, self.camera])
+        tm.distance_to_leading_vehicle(self.vehicle,5)
 
     def add_image(self, image):
         self.counter += 1
@@ -139,25 +163,15 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         pass
 
     def destroy_actors(self, actors):
-        print("destroing actors")
+        print("destroying actors")
         for actor in actors:
             actor.destroy()
+        return ""
 
     def get_controls(self, current_point, next_point):
         thr = random.choice([0.8,0.7,0.6])
         steer = random.choice([-0.3,0.0,0.0,0.0,0.3,0.1,-0.1])
         return throttle, steer, brake
-
-    def check_actors_in_course(self,current_location):
-        current_location = np.array([current_location.x, current_location.y, current_location.z])
-        for actor in self.env_actors:
-            loc = actor.get_location()
-            actor_location = np.array([loc.x, loc.y, loc.z])
-            distance = np.linalg.norm(current_location - actor_location)
-            if distance<40:
-                return True
-            else:
-                return False
 
     def drive(self):
         self.add_env_vehicles()
@@ -167,10 +181,11 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         route_waypoints, road_options = self.find_route(self.vehicle.get_location(), self.get_destination())
         #print(route_waypoints)
         continue_loop = True
-
+        thr, steer, brake, reverse = 0, 0, 0, 0
         while continue_loop:
             world.tick()
-            thr, steer, brake, reverse = 0, 0, 0, 0
+            if 
+            
             try:
                 if kb.is_pressed('w'):
                     thr = random.choice([0.3, 0.4])
@@ -188,20 +203,26 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
                 elif kb.is_pressed('r'):
                     thr = 0.5   
                     reverse =1
+                elif kb.is_pressed('l'):
+                    continue_loop=False
+
             except:
                 pass     
+            
             '''if current_point == next_point:
                 continue_loop = False
                 break'''
-            close_vehicles = self.check_actors_in_course(self.vehicle.get_location())
-            print(close_vehicles)
+            '''close_vehicles = self.check_actors_in_course(self.vehicle.get_transform(), self.env_actors)
+            if close_vehicles:
+                brake=1'''                
+            
             #throttle, steer, brake = self.get_controls()
             #check for red flags in the env like cars or traffic lights before you in a certain distance
             #hhow???????
 
             self.vehicle.apply_control(carla.VehicleControl(throttle = thr, steer = steer, brake = brake, reverse=reverse))
 
-        map(self.destroy_actors, [self.env_actors,self.agent_actors])
+        list(map(self.destroy_actors, [self.env_actors,self.agent_actors]))
 
 
 cs = CarlaSession()
