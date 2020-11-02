@@ -9,10 +9,10 @@ The agent also responds to traffic lights. """
 
 
 import carla
-from agents.navigation.agent import Agent, AgentState
-from agents.navigation.local_planner import LocalPlanner
-from agents.navigation.global_route_planner import GlobalRoutePlanner
-from agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO
+from carla_route_finder.agent import Agent, AgentState
+from carla_route_finder.local_planner import LocalPlanner
+from carla_route_finder.global_route_planner import GlobalRoutePlanner
+from carla_route_finder.global_route_planner_dao import GlobalRoutePlannerDAO
 
 class BasicAgent(Agent):
     """
@@ -20,7 +20,7 @@ class BasicAgent(Agent):
     target destination. This agent respects traffic lights and other vehicles.
     """
 
-    def __init__(self, vehicle, target_speed=20):
+    def __init__(self, vehicle, target_speed, world):
         """
 
         :param vehicle: actor to apply to local planner logic onto
@@ -30,6 +30,7 @@ class BasicAgent(Agent):
         self._proximity_tlight_threshold = 5.0  # meters
         self._proximity_vehicle_threshold = 10.0  # meters
         self._state = AgentState.NAVIGATING
+        self._world = world
         args_lateral_dict = {
             'K_P': 1,
             'K_D': 0.4,
@@ -51,8 +52,7 @@ class BasicAgent(Agent):
         """
 
         start_waypoint = self._map.get_waypoint(self._vehicle.get_location())
-        end_waypoint = self._map.get_waypoint(
-            carla.Location(location[0], location[1], location[2]))
+        end_waypoint = self._map.get_waypoint(location.location)
 
         route_trace = self._trace_route(start_waypoint, end_waypoint)
 
@@ -83,7 +83,7 @@ class BasicAgent(Agent):
         Execute one step of navigation.
         :return: carla.VehicleControl
         """
-
+        waypoints = None
         # is there an obstacle in front of us?
         hazard_detected = False
 
@@ -101,7 +101,8 @@ class BasicAgent(Agent):
 
             self._state = AgentState.BLOCKED_BY_VEHICLE
             hazard_detected = True
-
+        
+        '''
         # check for the state of the traffic lights
         light_state, traffic_light = self._is_light_red(lights_list)
         if light_state:
@@ -110,15 +111,15 @@ class BasicAgent(Agent):
 
             self._state = AgentState.BLOCKED_RED_LIGHT
             hazard_detected = True
-
+        '''
         if hazard_detected:
             control = self.emergency_stop()
         else:
             self._state = AgentState.NAVIGATING
             # standard local planner behavior
-            control = self._local_planner.run_step(debug=debug)
+            control, waypoints = self._local_planner.run_step(debug=debug)
 
-        return control
+        return control, waypoints
 
     def done(self):
         """

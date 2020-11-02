@@ -7,6 +7,7 @@ import keyboard as kb
 from carla_route_finder.global_route_planner_dao import GlobalRoutePlannerDAO
 from carla_route_finder.global_route_planner import GlobalRoutePlanner
 from carla_route_finder import misc 
+from carla_route_finder.basic_agent import BasicAgent
 
 #create main carla objects
 client = carla.Client('localhost',CARLA_PORT)
@@ -174,9 +175,20 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         return throttle, steer, brake
 
     def drive(self):
-        self.add_env_vehicles()
+        #self.add_env_vehicles()
         self.add_agent()
+        b_agent = BasicAgent(self.vehicle, 30, world)
+        destination = self.get_destination()
+        route_waypoints, road_options = self.find_route(self.vehicle.get_location(), destination)
+        b_agent.set_destination(destination)
+        while True:
+            world.tick()
+            if b_agent.done():
+                break
+            control, waypoints = b_agent.run_step()
+            self.vehicle.apply_control(control)
 
+        '''
         #find_route
         route_waypoints, road_options = self.find_route(self.vehicle.get_location(), self.get_destination())
         #print(route_waypoints)
@@ -208,11 +220,12 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
 
             except:
                 pass     
-            
-            '''if current_point == next_point:
+
+
+            if current_point == next_point:
                 continue_loop = False
-                break'''
-            '''close_vehicles = self.check_actors_in_course(self.vehicle.get_transform(), self.env_actors)
+                break
+            close_vehicles = self.check_actors_in_course(self.vehicle.get_transform(), self.env_actors)
             if close_vehicles:
                 brake=1'''                
             
@@ -220,7 +233,6 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
             #check for red flags in the env like cars or traffic lights before you in a certain distance
             #hhow???????
 
-            self.vehicle.apply_control(carla.VehicleControl(throttle = thr, steer = steer, brake = brake, reverse=reverse))
 
         list(map(self.destroy_actors, [self.env_actors,self.agent_actors]))
 

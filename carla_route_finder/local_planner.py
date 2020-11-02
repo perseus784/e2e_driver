@@ -8,7 +8,6 @@
 from enum import Enum
 from collections import deque
 import random
-
 import carla
 from carla_route_finder.controller import VehiclePIDController
 from carla_route_finder.misc import draw_waypoints
@@ -247,10 +246,9 @@ class LocalPlanner(object):
             for i in range(max_index + 1):
                 self._waypoint_buffer.popleft()
 
-        if debug:
-            draw_waypoints(self._vehicle.get_world(), [self.target_waypoint], self._vehicle.get_location().z + 1.0)
+        draw_waypoints(self._vehicle.get_world(), [self.target_waypoint], self._vehicle.get_location().z + 1.0)
 
-        return control
+        return control, self._waypoint_buffer
 
     def done(self):
         return len(self._waypoints_queue) == 0 and len(self._waypoint_buffer) == 0
