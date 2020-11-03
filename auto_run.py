@@ -17,7 +17,6 @@ settings = world.get_settings()
 settings.synchronous_mode = True # Enables synchronous mode
 settings.fixed_delta_seconds = 0.01
 world.apply_settings(settings)
-
 blueprint_library = world.get_blueprint_library()
 tm = client.get_trafficmanager(4040)
 tm.set_synchronous_mode(True)
@@ -74,7 +73,7 @@ class Carla_Navigation:
         destination_location = self.map.get_waypoint(destination_location.location)
         route_waypoints = self.grp.trace_route(current_location.transform.location, destination_location.transform.location)
         for point in route_waypoints:
-            world.debug.draw_string(point[0].transform.location,'O', color=carla.Color(r=255, g=0, b=0), life_time=120.0, persistent_lines=True)
+            world.debug.draw_string(point[0].transform.location,'O', color=carla.Color(r=255, g=0, b=0), life_time=10.0, persistent_lines=True)
         waypoints, road_options = zip(*route_waypoints)
         return waypoints, road_options
 
@@ -143,15 +142,17 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         start_point = random.choice(world.get_map().get_spawn_points())
         vehicle_bp = blueprint_library.find('vehicle.audi.a2')
         self.vehicle = world.spawn_actor(vehicle_bp,start_point)
+        self.vehicle.set_location(start_point.location)
         camera_sensor_bp = self.add_camera()
         sensor_location = carla.Transform(carla.Location(x=0,y=0,z=2.5))
         self.camera = world.spawn_actor(camera_sensor_bp, sensor_location, attach_to = self.vehicle)
         self.camera.listen(lambda image: self.add_image(image))
         self.agent_actors.extend([self.vehicle, self.camera])
-        tm.distance_to_leading_vehicle(self.vehicle,5)
-
+        time.sleep(10)
     def add_image(self, image):
         self.counter += 1
+        if self.counter<100:
+            return
         img = np.reshape(image.raw_data,(IM_H,IM_W,4))
         img = img[:,:,:3][:]
         cv2.imshow("live",img)
@@ -177,13 +178,15 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
     def drive(self):
         #self.add_env_vehicles()
         self.add_agent()
-        b_agent = BasicAgent(self.vehicle, 30, world)
+        world.tick()
+        b_agent = BasicAgent(self.vehicle, 20, world)
         destination = self.get_destination()
         route_waypoints, road_options = self.find_route(self.vehicle.get_location(), destination)
         b_agent.set_destination(destination)
         while True:
             world.tick()
             if b_agent.done():
+                print("Reached destination")
                 break
             control, waypoints = b_agent.run_step()
             self.vehicle.apply_control(control)

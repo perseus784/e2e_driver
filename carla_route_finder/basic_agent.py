@@ -70,7 +70,6 @@ class BasicAgent(Agent):
             grp = GlobalRoutePlanner(dao)
             grp.setup()
             self._grp = grp
-
         # Obtain route plan
         route = self._grp.trace_route(
             start_waypoint.transform.location,
