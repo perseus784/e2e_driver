@@ -8,6 +8,7 @@ waypoint_buffer_size = 5
 watchout_distance = 10 
 waypoint_resolution = 2.0 
 EGO_SPEED = 45
+batch_size = 8
 image_save_path ='data'
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 number_env_vehicles = 50

@@ -174,6 +174,9 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         steer = random.choice([-0.3,0.0,0.0,0.0,0.3,0.1,-0.1])
         return throttle, steer, brake
 
+    def store_data(self, image, waypoints, controls):
+        pass
+
     def drive(self):
         #self.add_env_vehicles()
         self.add_agent()
@@ -190,6 +193,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
                 print("Reached destination")
                 break
             control, waypoints = b_agent.run_step()
+            self.store_data(self.camera_image, waypoints, control)
             cv2.imshow("live",self.camera_image)
             cv2.waitKey(1)
             self.vehicle.apply_control(control)

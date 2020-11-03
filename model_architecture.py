@@ -12,7 +12,7 @@ class My_Network(tf.keras.Model):
 
     def dense_layer(self, number_of_units, activation='relu'):
         return tf.keras.layers.Dense(number_of_units, activation=activation)
-    
+
     def time_distributed_layer(self, x):
         pass
 
@@ -21,6 +21,10 @@ class My_Network(tf.keras.Model):
     
     def op_layer(self):
         pass
+    
+    def RNN(self):
+        hidden_states = tf.keras.layers.GRU(units=waypoint_buffer_size, return_state=True)
+        return hidden_states
 
     def call(self, x):
         #print(x)
