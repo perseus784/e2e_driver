@@ -12,7 +12,7 @@ class My_Network(tf.keras.Model):
 
     def dense_layer(self, number_of_units, activation='relu'):
         return tf.keras.layers.Dense(number_of_units, activation=activation)
-
+    
     def time_distributed_layer(self, x):
         pass
 

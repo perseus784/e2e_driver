@@ -119,7 +119,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         env_vehicles_bp = [x for x in env_vehicles_bp if not x.id.endswith('carlacola')] 
         spawn_points = world.get_map().get_spawn_points()    
         random.shuffle(spawn_points)
-  
+        
         self.env_actors = []
         for n, transform in enumerate(spawn_points):
             if n >= number_env_vehicles:
@@ -146,17 +146,16 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         camera_sensor_bp = self.add_camera()
         sensor_location = carla.Transform(carla.Location(x=0,y=0,z=2.5))
         self.camera = world.spawn_actor(camera_sensor_bp, sensor_location, attach_to = self.vehicle)
-        self.camera.listen(lambda image: self.add_image(image))
         self.agent_actors.extend([self.vehicle, self.camera])
-        time.sleep(10)
+ 
     def add_image(self, image):
         self.counter += 1
-        if self.counter<100:
-            return
+
         img = np.reshape(image.raw_data,(IM_H,IM_W,4))
-        img = img[:,:,:3][:]
-        cv2.imshow("live",img)
-        cv2.waitKey(1)
+        self.camera_image = img[:,:,:3][:]
+         
+        '''cv2.imshow("live",img)
+        cv2.waitKey(1)'''
 
     def add_sensors(self):
         pass
@@ -179,17 +178,23 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         #self.add_env_vehicles()
         self.add_agent()
         world.tick()
+        time.sleep(2)
+        self.camera.listen(lambda image: self.add_image(image))
+        world.tick()
         b_agent = BasicAgent(self.vehicle, 20, world)
         destination = self.get_destination()
         route_waypoints, road_options = self.find_route(self.vehicle.get_location(), destination)
         b_agent.set_destination(destination)
         while True:
-            world.tick()
             if b_agent.done():
                 print("Reached destination")
                 break
             control, waypoints = b_agent.run_step()
+            cv2.imshow("live",self.camera_image)
+            cv2.waitKey(1)
             self.vehicle.apply_control(control)
+            world.tick()
+
 
         '''
         #find_route
