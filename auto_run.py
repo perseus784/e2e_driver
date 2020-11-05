@@ -95,6 +95,7 @@ class Carla_Navigation:
                 return False'''
         return False
 
+        
     def calculate_speed(self, ideal_speed, current_speed):
 
         pass
@@ -110,7 +111,8 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         Carla_Navigation.__init__(self)
         self.agent_actors = []
         self.counter = 0
-        self.env_actors = []    
+        self.env_actors = []   
+        self.save = [] 
 
     def add_env_vehicles(self):
         env_vehicles_bp = blueprint_library.filter('vehicle.*')
@@ -137,6 +139,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
 
     def conditional_world_setter(self):
         pass
+    
 
     def add_agent(self):
         start_point = random.choice(world.get_map().get_spawn_points())
@@ -174,8 +177,10 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         steer = random.choice([-0.3,0.0,0.0,0.0,0.3,0.1,-0.1])
         return throttle, steer, brake
 
-    def store_data(self, image, waypoints, controls):
-        pass
+    def store_data(self, data_queue):
+        data_queue = list(zip(*data_queue))
+        save_path = os.path.join(data_collection_path,'{}.npz'.format(self.counter))
+        np.savez(save_path, image=data_queue[0], wayopints=data_queue[1], controls=[2])
 
     def drive(self):
         #self.add_env_vehicles()
@@ -188,12 +193,17 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         destination = self.get_destination()
         route_waypoints, road_options = self.find_route(self.vehicle.get_location(), destination)
         b_agent.set_destination(destination)
+        data_queue=[]
         while True:
             if b_agent.done():
                 print("Reached destination")
                 break
-            control, waypoints = b_agent.run_step()
-            self.store_data(self.camera_image, waypoints, control)
+            control, _waypoints = b_agent.run_step()
+            waypoints =[[wp[0].transform.location.x,wp[0].transform.location.y,wp[0].transform.location.z]  for wp in _waypoints]
+            data_queue.append([self.camera_image, waypoints, [control.throttle, control.steer, control.brake]])
+            if len(data_queue)==32:
+                self.store_data(data_queue)
+                data_queue=[]
             cv2.imshow("live",self.camera_image)
             cv2.waitKey(1)
             self.vehicle.apply_control(control)
