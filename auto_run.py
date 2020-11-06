@@ -178,9 +178,10 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         return throttle, steer, brake
 
     def store_data(self, data_queue):
+        random.shuffle(data_queue)
         data_queue = list(zip(*data_queue))
         save_path = os.path.join(data_collection_path,'{}.npz'.format(self.counter))
-        np.savez(save_path, image=data_queue[0], wayopints=data_queue[1], controls=[2])
+        np.savez(save_path, image=data_queue[0], waypoints=data_queue[1], controls=[2])
 
     def drive(self):
         #self.add_env_vehicles()
@@ -201,7 +202,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
             control, _waypoints = b_agent.run_step()
             waypoints =[[wp[0].transform.location.x,wp[0].transform.location.y,wp[0].transform.location.z]  for wp in _waypoints]
             data_queue.append([self.camera_image, waypoints, [control.throttle, control.steer, control.brake]])
-            if len(data_queue)==32:
+            if len(data_queue)==128:
                 self.store_data(data_queue)
                 data_queue=[]
             cv2.imshow("live",self.camera_image)

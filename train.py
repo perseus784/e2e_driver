@@ -8,9 +8,9 @@ class Train_Class:
     def __init__(self):
         self.model = My_Network()
         self.optimizer = tf.keras.optimizers.Adam()
-        self.loss = tf.keras.losses.Huber()
-        self.tensorboard_callback = tf.keras.callbacks.TensorBoard(os.path.join(save_path, 'logs'), update_freq=1)
-        self.model_save_callback = tf.keras.callbacks.TensorBoard(os.path.join(save_path,'model_checkpoints'))
+        self.loss = tf.keras.losses.MSE()
+        self.tensorboard_callback = tf.keras.callbacks.TensorBoard(tensorlogs, update_freq=1)
+        self.model_save_callback = tf.keras.callbacks.TensorBoard(model_save_folder)
         self.tensorboard_callback.set_model(self.model)
         self.model_save_callback.set_model(self.model)
 
@@ -26,8 +26,10 @@ class Train_Class:
     def write_summary(self):
         pass
 
-    def train_model(self, model):
+    def train_model(self):
+        
         pass
+
 c = Train_Class()
 
 
