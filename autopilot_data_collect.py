@@ -9,14 +9,33 @@ from carla_route_finder.global_route_planner import GlobalRoutePlanner
 from carla_route_finder import misc 
 from carla_route_finder.basic_agent import BasicAgent
 
+weather_settings = [carla.WeatherParameters.ClearNoon,
+carla.WeatherParameters.CloudyNoon,
+carla.WeatherParameters.WetNoon,
+carla.WeatherParameters.WetCloudyNoon,
+carla.WeatherParameters.MidRainyNoon,
+carla.WeatherParameters.HardRainNoon,
+carla.WeatherParameters.SoftRainNoon,
+carla.WeatherParameters.ClearSunset,
+carla.WeatherParameters.CloudySunset,
+carla.WeatherParameters.WetSunset,
+carla.WeatherParameters.WetCloudySunset,
+carla.WeatherParameters.MidRainSunset,
+carla.WeatherParameters.HardRainSunset,
+carla.WeatherParameters.SoftRainSunset]
+
+towns_list = ["Town01", "Town02", "Town03","Town04","Town05","Town06", "Town07"]
+
 #create main carla objects
-client = carla.Client('localhost',CARLA_PORT)
+client = carla.Client('localhost', CARLA_PORT)
 client.set_timeout(5)
 world = client.load_world(TOWN)
 settings = world.get_settings()
 settings.synchronous_mode = True # Enables synchronous mode
 settings.fixed_delta_seconds = 0.01
 world.apply_settings(settings)
+world.set_weather(carla.WeatherParameters.ClearNoon)
+
 blueprint_library = world.get_blueprint_library()
 tm = client.get_trafficmanager(4040)
 tm.set_synchronous_mode(True)
@@ -30,7 +49,7 @@ class Carla_Sensors:
         camera_sensor_bp.set_attribute('image_size_x',str(IM_W))
         camera_sensor_bp.set_attribute('image_size_y',str(IM_H))
         #camera_sensor_bp.set_attribute('sensor_tick',str(time_step))
-        camera_sensor_bp.set_attribute('fov',str(100))
+        camera_sensor_bp.set_attribute('fov',str(80))
         self.sensors.append(camera_sensor_bp)
         return camera_sensor_bp
 
@@ -49,8 +68,16 @@ class Carla_Sensors:
 
     def add_depth(self):
         pass
+
     def add_semantic(self):
-        pass
+        camera_sensor_bp = blueprint_library.find('sensor.camera.semantic_segmentation')
+        camera_sensor_bp.set_attribute('image_size_x',str(IM_W))
+        camera_sensor_bp.set_attribute('image_size_y',str(IM_H))
+        #camera_sensor_bp.set_attribute('sensor_tick',str(time_step))
+        camera_sensor_bp.set_attribute('fov',str(80))
+        self.sensors.append(camera_sensor_bp)
+        return camera_sensor_bp
+
     def add_GNSS(self):
         pass
     def add_IMU(self):
@@ -97,7 +124,6 @@ class Carla_Navigation:
 
         
     def calculate_speed(self, ideal_speed, current_speed):
-
         pass
     def calculate_steer(Self):
         pass
@@ -110,7 +136,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         Carla_Sensors.__init__(self)
         Carla_Navigation.__init__(self)
         self.agent_actors = []
-        self.counter = 0
+        self.counter = len(os.listdir(data_collection_path))+1
         self.env_actors = []   
         self.save = [] 
 
@@ -135,7 +161,7 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
             self.env_actors.append(env_vehicle)
 
     def random_world_setter(self):
-        pass
+        world.set_weather(random.choice(weather_settings))
 
     def conditional_world_setter(self):
         pass
@@ -147,18 +173,29 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         self.vehicle = world.spawn_actor(vehicle_bp,start_point)
         self.vehicle.set_location(start_point.location)
         camera_sensor_bp = self.add_camera()
+        semantic_sensor_bp = self.add_semantic()
         sensor_location = carla.Transform(carla.Location(x=0,y=0,z=2.5))
         self.camera = world.spawn_actor(camera_sensor_bp, sensor_location, attach_to = self.vehicle)
-        self.agent_actors.extend([self.vehicle, self.camera])
+        self.semantic = world.spawn_actor(semantic_sensor_bp, sensor_location, attach_to = self.vehicle)
+        self.agent_actors.extend([self.vehicle, self.camera, self.semantic])
  
     def add_image(self, image):
 
         img = np.reshape(image.raw_data,(IM_H,IM_W,4))
-        self.camera_image = img[:,:,:3][:].astype(np.uint8)
+        self.camera_image = img[IM_H//2:IM_H,:,:3][:].astype(np.uint8)
          
-        '''cv2.imshow("live",img)
+        '''cv2.imshow("live",self.camera_image[IM_H//2:IM_H,:,:])
         cv2.waitKey(1)'''
 
+    def add_sem(self, image):
+
+        image.convert(carla.ColorConverter.CityScapesPalette)
+        img = np.reshape(image.raw_data,(IM_H,IM_W,4))
+        self.semantic_image = img[IM_H//2:IM_H,:,:3][:].astype(np.uint8)
+        '''cv2.imshow("sem",self.semantic_image[IM_H//2:IM_H,:,:])
+        cv2.waitKey(1)'''
+         
+        
     def add_sensors(self):
         pass
     
@@ -177,12 +214,11 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         return throttle, steer, brake
 
     def store_data(self, data_queue):
-        self.counter += 1
-        random.shuffle(data_queue)
+        #random.shuffle(data_queue)
         data_queue = list(zip(*data_queue))
-
         save_path = os.path.join(data_collection_path,'{}.npz'.format(self.counter))
-        np.savez(save_path, image=data_queue[0], waypoints=data_queue[1], controls=np.array(data_queue[2]))
+        np.savez(save_path, image=np.array(data_queue[0], dtype=np.uint8), controls=np.array(data_queue[1], dtype=np.float32))
+        self.counter += 1
 
     def drive(self):
         #self.add_env_vehicles()
@@ -190,87 +226,42 @@ class CarlaSession(Carla_Sensors, Carla_Navigation):
         world.tick()
         time.sleep(2)
         self.camera.listen(lambda image: self.add_image(image))
+        self.semantic.listen(lambda simage: self.add_sem(simage))
         world.tick()
-        b_agent = BasicAgent(self.vehicle, 20, world)
+        '''b_agent = BasicAgent(self.vehicle, 20, world)
         destination = self.get_destination()
         route_waypoints, road_options = self.find_route(self.vehicle.get_location(), destination)
-        b_agent.set_destination(destination)
+        b_agent.set_destination(destination)'''
         data_queue=[]
         waypoints=np.zeros((5,3))
+        self.vehicle.set_autopilot(True, tm.get_port())
+        tm.ignore_lights_percentage(self.vehicle, 100)
+        counter = 0
+        time.sleep(2)
+
         while True:
-            if b_agent.done():
-                print("Reached destination")
-                break
-            control, _waypoints = b_agent.run_step()
+            '''if counter%20_00 == 0:
+                self.random_world_setter()
+                print(counter)'''
+            world.tick()
+            '''cv2.imshow("live",self.camera_image)
+            cv2.waitKey(1)'''
+            counter +=1
+            control = self.vehicle.get_control()
+            if counter%3 ==0:
+                data_queue.append([[self.camera_image, self.semantic_image], [round(control.throttle, 3), round(control.steer,3), round(control.brake,3)]])
 
-            if len(_waypoints)==5:
-                waypoints =np.array([[wp[0].transform.location.x,wp[0].transform.location.y,wp[0].transform.location.z] for wp in _waypoints])
-
-            data_queue.append([self.camera_image, waypoints, [control.throttle, control.steer, control.brake]])
-            if len(data_queue)==max_sample_size:
+            if len(data_queue)==data_max_sample_size:
                 self.store_data(data_queue)
                 data_queue=[]
-            cv2.imshow("live",self.camera_image)
-            cv2.waitKey(1)
-            self.vehicle.apply_control(control)
-            world.tick()
+
             if kb.is_pressed('q'):
                 break
 
-
-        '''
-        #find_route
-        route_waypoints, road_options = self.find_route(self.vehicle.get_location(), self.get_destination())
-        #print(route_waypoints)
-        continue_loop = True
-        thr, steer, brake, reverse = 0, 0, 0, 0
-        while continue_loop:
-            world.tick()
-            if 
-            
-            try:
-                if kb.is_pressed('w'):
-                    thr = random.choice([0.3, 0.4])
-                    steer = 0
-                elif kb.is_pressed('a'):
-                    steer = -0.2
-                    thr = 0.3
-                elif kb.is_pressed('d'):
-                    steer = 0.2   
-                    thr = 0.3
-                elif kb.is_pressed('x'):
-                    steer = 0
-                    thr = 0   
-                    brake = 1  
-                elif kb.is_pressed('r'):
-                    thr = 0.5   
-                    reverse =1
-                elif kb.is_pressed('l'):
-                    continue_loop=False
-
-            except:
-                pass     
-
-
-            if current_point == next_point:
-                continue_loop = False
-                break
-            close_vehicles = self.check_actors_in_course(self.vehicle.get_transform(), self.env_actors)
-            if close_vehicles:
-                brake=1'''                
-            
-            #throttle, steer, brake = self.get_controls()
-            #check for red flags in the env like cars or traffic lights before you in a certain distance
-            #hhow???????
-
-
         list(map(self.destroy_actors, [self.env_actors,self.agent_actors]))
 
-
 cs = CarlaSession()
-
-for i in range(50):
-    cs.drive()
+cs.drive()
 
 
 
