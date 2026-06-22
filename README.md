@@ -6,6 +6,9 @@ An end-to-end learning pipeline that drives a vehicle in the [CARLA](https://car
 
 > Demo video: https://youtu.be/qu6lK62JuP4
 
+<p align="center"><img src="figures/data.png" alt="Collected data sample" width="500"></p>
+<p align="center"><em>Sample frame and the throttle/steer/brake controls the network is trained to predict.</em></p>
+
 ## Highlights
 
 - **Behavioral cloning at scale** — collected 500k+ image/control samples by driving CARLA's built-in autopilot across multiple towns and weather conditions.
@@ -38,8 +41,20 @@ Raw driving is heavily imbalanced — most frames are "go straight." [`preproces
 
 Output: `[throttle (0,1), steer (-1,1), brake (0,1)]`, regressed directly with MSE loss.
 
+<p align="center"><img src="figures/inception.png" alt="Inception block diagram" width="450"></p>
+<p align="center"><img src="figures/endtoend.png" alt="Full network architecture" width="280"></p>
+<p align="center"><em>Inception block (left) and the full stem → Inception blocks → dense head architecture (right).</em></p>
+
 ### 4. Training
 [`train.py`](train.py) trains with `tf.GradientTape` and Adam, logging batch/epoch train and test loss to TensorBoard ([`tensorlogs`](config.py)). Trained on an i7-10th-gen / RTX 2070 (8GB) / 16GB RAM box for 35 epochs (~4 hours). Batch and epoch loss curves on both train and test sets show steady convergence with no overfitting, attributable to batch norm + dropout regularization across every layer.
+
+| Train (batch) | Train (epoch) |
+|---|---|
+| ![Train batch loss](figures/train_batch_loss.jpg) | ![Train epoch loss](figures/train_epoch_loss.jpg) |
+
+| Test (batch) | Test (epoch) |
+|---|---|
+| ![Test batch loss](figures/test_batch_loss.jpg) | ![Test epoch loss](figures/test_epoch_loss.jpg) |
 
 ### 5. Inference / Closed-loop Control
 [`auto_run.py`](auto_run.py) and [`test.py`](test.py) feed live camera frames from the simulator through the trained model and apply the predicted controls back to the vehicle in real time.
